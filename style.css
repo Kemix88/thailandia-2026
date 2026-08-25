@@ -332,7 +332,7 @@ h1 {
   display: grid;
   grid-template-columns: 112px 1px minmax(0, 1fr) 34px;
   gap: 24px;
-  align-items: start;
+  align-items: center;
   padding: 22px 0;
   border-bottom: 1px solid rgba(183, 199, 223, .18);
 }
@@ -355,6 +355,7 @@ h1 {
 }
 
 .event__body {
+  align-self: center;
   min-width: 0;
 }
 
