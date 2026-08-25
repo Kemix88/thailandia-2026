@@ -41,10 +41,11 @@ button {
   padding: 36px 22px 64px;
   color: white;
   background:
-    linear-gradient(180deg, rgba(1, 11, 28, .24), rgba(1, 11, 28, .86)),
-    radial-gradient(circle at 52% 33%, rgba(39, 200, 255, .28), transparent 16rem),
-    linear-gradient(180deg, #062e5c 0%, #024169 58%, #031326 100%);
-  box-shadow: inset 0 -1px rgba(99, 204, 255, .2);
+    radial-gradient(circle at 0% 34%, rgba(255, 235, 155, .95) 0, rgba(255, 188, 91, .62) 8rem, transparent 19rem),
+    radial-gradient(ellipse at 12% 54%, rgba(255, 151, 76, .55), transparent 27rem),
+    linear-gradient(105deg, rgba(255, 202, 119, .36) 0%, rgba(245, 103, 61, .18) 38%, rgba(52, 23, 72, .55) 100%),
+    linear-gradient(180deg, #ff9a3d 0%, #f06f43 48%, #371f58 100%);
+  box-shadow: inset 0 -1px rgba(255, 190, 115, .26);
 }
 
 .hero::before {
@@ -52,7 +53,8 @@ button {
   inset: 0;
   z-index: 0;
   background:
-    linear-gradient(90deg, rgba(1, 9, 23, .7) 0%, rgba(1, 9, 23, .1) 48%, rgba(1, 9, 23, .74) 100%);
+    linear-gradient(90deg, rgba(255, 228, 157, .25) 0%, rgba(255, 153, 74, .08) 36%, rgba(20, 8, 42, .65) 100%),
+    linear-gradient(180deg, rgba(111, 42, 70, .02) 0%, rgba(12, 7, 28, .64) 100%);
   content: "";
 }
 
@@ -121,6 +123,13 @@ h1 {
   text-shadow: 0 0 22px rgba(53, 220, 255, .52);
 }
 
+.hero h1 {
+  color: #fff3c2;
+  text-shadow:
+    0 0 24px rgba(255, 179, 76, .62),
+    0 3px 24px rgba(46, 14, 43, .72);
+}
+
 .trip-dates {
   margin: 0;
   color: rgba(255, 255, 255, .92);
@@ -157,6 +166,14 @@ h1 {
   cursor: pointer;
   font-size: 24px;
   font-weight: 600;
+}
+
+.hero .button {
+  border-color: rgba(255, 215, 138, .82);
+  background: rgba(113, 45, 70, .44);
+  box-shadow:
+    inset 0 0 28px rgba(255, 195, 105, .16),
+    0 0 26px rgba(255, 151, 76, .18);
 }
 
 .button span {
