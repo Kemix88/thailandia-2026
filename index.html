@@ -3,31 +3,34 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#0f172a">
+  <meta name="theme-color" content="#123c33">
   <meta name="description" content="Itinerario Thailandia 2026">
   <title>Thailandia 2026</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="hero">
-    <div class="hero-inner">
-      <div class="eyebrow">VIAGGIO</div>
+    <div class="hero__content">
+      <p class="kicker">ITINERARIO DI VIAGGIO</p>
       <h1>Thailandia 2026</h1>
-      <p id="trip-dates">Caricamento itinerario...</p>
-      <div class="hero-actions">
-        <button id="today-btn" class="primary-btn" type="button">Oggi</button>
-        <button id="refresh-btn" class="secondary-btn" type="button">Aggiorna</button>
+      <p id="tripDates" class="trip-dates">24 novembre – 3 dicembre 2026</p>
+
+      <div class="hero__buttons">
+        <button id="todayButton" class="button button--light" type="button">Vai a oggi</button>
+        <button id="refreshButton" class="button button--ghost" type="button">Aggiorna</button>
       </div>
     </div>
   </header>
 
-  <main>
-    <section id="status" class="status">Caricamento dati...</section>
-    <nav id="day-nav" class="day-nav" aria-label="Giorni del viaggio"></nav>
+  <main class="container">
+    <div id="status" class="status">Caricamento itinerario…</div>
+    <nav id="dayNav" class="day-nav" aria-label="Giorni del viaggio"></nav>
     <section id="itinerary" class="itinerary"></section>
   </main>
 
-  <footer>Dati aggiornati da Google Sheets</footer>
+  <footer class="footer">
+    Dati caricati da Google Sheets tramite SheetDB
+  </footer>
 
   <script src="app.js"></script>
 </body>

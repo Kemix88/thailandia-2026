@@ -1,66 +1,204 @@
-const API_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnQvUgH4bLA_xdMPhLxqDnZkSs33fF3OzD_IbohYjklQEUF4XUJP_oLRG9-dOZTnPeONvwVkpDTlgpO7FCBqFq09Y0D5qBcsUuq83e045_hxhllUmhwhOPXjRBNPcwgHytg9cM9-q2_mQDFG1G6-zONttnnerQfMLDsczbNCK89ZgobYcm_eNdjceUjACy7MhQFhwsLvv2agl6hSq5jWYVWnfrZMTZel6eyj7lIYH0Vm7njsdxH947EbqQNGypJ-h4zbRxKoN0ZjfK4utWP9juz0CsQjrw&lib=MpA1Li4oxEfAacgzF_pFINoUX5nX151GL";
+const API_URL = "https://sheetdb.io/api/v1/jvs32otchwgus?sheet=Itinerario";
+const TRIP_YEAR = 2026;
 
-const $ = (selector) => document.querySelector(selector);
-let tripData = null;
+const $ = selector => document.querySelector(selector);
+let itineraryDays = [];
 
 document.addEventListener("DOMContentLoaded", () => {
-  $("#refresh-btn").addEventListener("click", loadItinerary);
-  $("#today-btn").addEventListener("click", scrollToToday);
-  loadItinerary();
+  $("#refreshButton").addEventListener("click", loadData);
+  $("#todayButton").addEventListener("click", scrollToToday);
+  loadData();
 });
 
-async function loadItinerary() {
-  setStatus("Caricamento dati...");
+async function loadData() {
+  setStatus("Caricamento itinerario…");
 
   try {
     const response = await fetch(API_URL, { cache: "no-store" });
 
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}`);
+      throw new Error(`Errore HTTP ${response.status}`);
     }
 
-    tripData = await response.json();
+    const rows = await response.json();
 
-    if (tripData.error) {
-      throw new Error(tripData.error);
+    if (!Array.isArray(rows)) {
+      throw new Error("Il JSON ricevuto non è un array di righe.");
     }
 
-    renderTrip(tripData);
-    setStatus(`Ultimo aggiornamento: ${new Date().toLocaleTimeString("it-IT", {
-      hour: "2-digit",
-      minute: "2-digit"
-    })}`);
+    itineraryDays = normalizeRows(rows);
+    renderNavigation(itineraryDays);
+    renderItinerary(itineraryDays);
+    updateTripDates(itineraryDays);
+
+    const now = new Date();
+    setStatus(
+      `Aggiornato alle ${now.toLocaleTimeString("it-IT", {
+        hour: "2-digit",
+        minute: "2-digit"
+      })}`
+    );
   } catch (error) {
     console.error(error);
-    setStatus("Impossibile caricare l'itinerario. Controlla che l'endpoint Apps Script sia pubblico.", true);
+    setStatus(
+      "Non riesco a caricare i dati da SheetDB. Verifica che l'API sia pubblica e che il foglio si chiami Itinerario.",
+      true
+    );
   }
 }
 
-function renderTrip(data) {
-  const trip = data.viaggio || {};
-  const days = data.giorni || [];
+function normalizeRows(rows) {
+  const grouped = new Map();
 
-  $("#trip-dates").textContent = formatTripDates(trip.inizio, trip.fine);
-  renderDayNavigation(days);
-  renderDays(days);
+  rows.forEach(row => {
+    const giornoRaw = getField(row, ["Giorno", "giorno"]);
+    const oreRaw = getField(row, ["Ore", "ore", "Ora", "ora"]);
+    const description = getField(row, ["Descrizione", "descrizione"]);
+    const note = getField(row, ["Note", "note"]);
+    const link = getField(row, ["Link", "link"]);
+
+    const hasAnyContent = [giornoRaw, oreRaw, description, note, link]
+      .some(value => String(value || "").trim() !== "");
+
+    if (!hasAnyContent) return;
+
+    const parsed = parseDateTime(oreRaw) || parseDayLabel(giornoRaw);
+
+    if (!parsed) return;
+
+    const key = parsed.date;
+
+    if (!grouped.has(key)) {
+      grouped.set(key, {
+        date: key,
+        dateObject: parsed.dateObject,
+        weekday: capitalize(
+          parsed.dateObject.toLocaleDateString("it-IT", { weekday: "long" })
+        ),
+        events: []
+      });
+    }
+
+    if (description || note || link || parsed.time) {
+      grouped.get(key).events.push({
+        time: parsed.time || extractTime(oreRaw),
+        description: String(description || "").trim(),
+        note: String(note || "").trim(),
+        link: normalizeUrl(String(link || "").trim())
+      });
+    }
+  });
+
+  const days = [...grouped.values()].sort(
+    (a, b) => a.dateObject - b.dateObject
+  );
+
+  days.forEach(day => {
+    day.events.sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"));
+  });
+
+  return days;
 }
 
-function renderDayNavigation(days) {
-  const nav = $("#day-nav");
+function getField(row, possibleNames) {
+  for (const name of possibleNames) {
+    if (Object.prototype.hasOwnProperty.call(row, name)) {
+      return row[name];
+    }
+  }
+
+  const keys = Object.keys(row);
+  const normalizedNames = possibleNames.map(name => name.toLowerCase());
+
+  const found = keys.find(key =>
+    normalizedNames.includes(key.trim().toLowerCase())
+  );
+
+  return found ? row[found] : "";
+}
+
+function parseDateTime(value) {
+  const text = String(value || "").trim();
+  const match = text.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?(?:\s+(\d{1,2}):(\d{2}))?/);
+
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  let year = match[3] ? Number(match[3]) : TRIP_YEAR;
+
+  if (year < 100) year += 2000;
+
+  const hour = match[4] !== undefined ? Number(match[4]) : 0;
+  const minute = match[5] !== undefined ? Number(match[5]) : 0;
+
+  const dateObject = new Date(year, month - 1, day, hour, minute);
+
+  if (
+    dateObject.getFullYear() !== year ||
+    dateObject.getMonth() !== month - 1 ||
+    dateObject.getDate() !== day
+  ) return null;
+
+  return {
+    date: toDateKey(dateObject),
+    dateObject,
+    time: match[4] !== undefined
+      ? `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`
+      : ""
+  };
+}
+
+function parseDayLabel(value) {
+  const text = String(value || "").trim().toLowerCase();
+  if (!text) return null;
+
+  const months = {
+    jan: 0, january: 0, gen: 0, gennaio: 0,
+    feb: 1, february: 1, febbraio: 1,
+    mar: 2, march: 2, marzo: 2,
+    apr: 3, april: 3, aprile: 3,
+    may: 4, mag: 4, maggio: 4,
+    jun: 5, june: 5, giu: 5, giugno: 5,
+    jul: 6, july: 6, lug: 6, luglio: 6,
+    aug: 7, august: 7, ago: 7, agosto: 7,
+    sep: 8, sept: 8, september: 8, set: 8, settembre: 8,
+    oct: 9, october: 9, ott: 9, ottobre: 9,
+    nov: 10, november: 10, novembre: 10,
+    dec: 11, december: 11, dic: 11, dicembre: 11
+  };
+
+  const match = text.match(/(\d{1,2})\s+([a-zàèéìòù]+)/i);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const monthName = match[2].toLowerCase();
+  const month = months[monthName];
+
+  if (month === undefined) return null;
+
+  const dateObject = new Date(TRIP_YEAR, month, day);
+
+  return {
+    date: toDateKey(dateObject),
+    dateObject,
+    time: ""
+  };
+}
+
+function renderNavigation(days) {
+  const nav = $("#dayNav");
   nav.innerHTML = "";
 
   days.forEach((day, index) => {
-    if (!day.data) return;
-
     const button = document.createElement("button");
     button.type = "button";
+    button.className = "day-nav__button";
     button.dataset.target = `day-${index}`;
 
-    const date = parseLocalDate(day.data);
-
     button.innerHTML = `
-      <span class="day-number">${date.getDate()}</span>
-      <span class="day-month">${date.toLocaleDateString("it-IT", { month: "short" })}</span>
+      <span class="day-nav__number">${day.dateObject.getDate()}</span>
+      <span class="day-nav__month">${day.dateObject.toLocaleDateString("it-IT", { month: "short" })}</span>
     `;
 
     button.addEventListener("click", () => {
@@ -74,169 +212,209 @@ function renderDayNavigation(days) {
   });
 }
 
-function renderDays(days) {
-  const container = $("#itinerary");
-  container.innerHTML = "";
+function renderItinerary(days) {
+  const root = $("#itinerary");
+  root.innerHTML = "";
+
+  if (!days.length) {
+    root.innerHTML = '<div class="empty-day">Nessuna attività trovata nel foglio Itinerario.</div>';
+    return;
+  }
 
   days.forEach((day, index) => {
     const section = document.createElement("section");
-    section.className = "day-section";
+    section.className = "day";
     section.id = `day-${index}`;
 
-    const date = day.data ? parseLocalDate(day.data) : null;
-    const dateLabel = date
-      ? date.toLocaleDateString("it-IT", {
-          day: "2-digit",
-          month: "long",
-          year: "numeric"
-        })
-      : "Data non disponibile";
-
-    const weekday = day.giorno || (
-      date ? date.toLocaleDateString("it-IT", { weekday: "long" }) : ""
-    );
-
-    section.innerHTML = `
-      <div class="day-heading">
-        <h2>${escapeHtml(capitalize(weekday))}</h2>
-        <span>${escapeHtml(dateLabel)}</span>
-      </div>
-      <div class="timeline"></div>
-    `;
-
-    const timeline = section.querySelector(".timeline");
-    const events = day.eventi || [];
-
-    events.forEach(event => {
-      timeline.appendChild(createEvent(event));
+    const formattedDate = day.dateObject.toLocaleDateString("it-IT", {
+      day: "numeric",
+      month: "long",
+      year: "numeric"
     });
 
-    container.appendChild(section);
+    section.innerHTML = `
+      <div class="day__header">
+        <h2 class="day__title">${escapeHtml(day.weekday)}</h2>
+        <div class="day__date">${escapeHtml(formattedDate)}</div>
+      </div>
+      <div class="day__events"></div>
+    `;
+
+    const eventsRoot = section.querySelector(".day__events");
+
+    if (!day.events.length) {
+      eventsRoot.innerHTML = '<div class="empty-day">Nessuna attività pianificata.</div>';
+    } else {
+      day.events.forEach(event => eventsRoot.appendChild(createEvent(event)));
+    }
+
+    root.appendChild(section);
   });
 
-  setupActiveDay();
+  observeCurrentDay();
 }
 
 function createEvent(event) {
-  const wrapper = document.createElement("article");
-  wrapper.className = "event";
+  const article = document.createElement("article");
+  article.className = "event";
 
-  const time = event.ora || "";
-  const description = event.descrizione || "";
-  const note = event.note || "";
-  const link = event.link || "";
+  const linkButton = event.link
+    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer">${linkLabel(event.link)}</a>`
+    : "";
 
-  wrapper.innerHTML = `
-    <div class="event-time">${escapeHtml(time)}</div>
-    <div class="event-body">
-      <div class="event-title">${iconFor(description)} ${escapeHtml(description)}</div>
-      ${note ? `<div class="event-note">${linkifyText(note)}</div>` : ""}
-      ${link && /^https?:\/\//i.test(link)
-        ? `<a class="event-link" href="${escapeAttribute(link)}" target="_blank" rel="noopener noreferrer">Apri link</a>`
+  article.innerHTML = `
+    <div class="event__time">${escapeHtml(event.time || "")}</div>
+    <div class="event__card">
+      ${event.description
+        ? `<div class="event__title">${eventIcon(event.description)} ${escapeHtml(event.description)}</div>`
         : ""}
+      ${event.note
+        ? `<div class="event__note">${formatNote(event.note)}</div>`
+        : ""}
+      ${linkButton}
     </div>
   `;
 
-  return wrapper;
+  return article;
 }
 
-function setupActiveDay() {
-  const sections = [...document.querySelectorAll(".day-section")];
-  const buttons = [...document.querySelectorAll(".day-nav button")];
+function updateTripDates(days) {
+  if (!days.length) return;
 
-  const observer = new IntersectionObserver((entries) => {
-    const visible = entries
-      .filter(entry => entry.isIntersecting)
-      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
+  const first = days[0].dateObject;
+  const last = days[days.length - 1].dateObject;
 
-    if (!visible) return;
-
-    buttons.forEach(btn => {
-      btn.classList.toggle("active", btn.dataset.target === visible.target.id);
-    });
-  }, {
-    rootMargin: "-80px 0px -55% 0px",
-    threshold: [0, 0.2, 0.5]
+  const firstText = first.toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "long"
   });
 
-  sections.forEach(section => observer.observe(section));
+  const lastText = last.toLocaleDateString("it-IT", {
+    day: "numeric",
+    month: "long",
+    year: "numeric"
+  });
+
+  $("#tripDates").textContent = `${firstText} – ${lastText}`;
 }
 
 function scrollToToday() {
-  if (!tripData?.giorni) return;
-
-  const today = new Date();
-  const todayKey = [
-    today.getFullYear(),
-    String(today.getMonth() + 1).padStart(2, "0"),
-    String(today.getDate()).padStart(2, "0")
-  ].join("-");
-
-  const index = tripData.giorni.findIndex(day => day.data === todayKey);
+  const now = new Date();
+  const todayKey = toDateKey(now);
+  const index = itineraryDays.findIndex(day => day.date === todayKey);
 
   if (index >= 0) {
     document.getElementById(`day-${index}`)?.scrollIntoView({
       behavior: "smooth",
       block: "start"
     });
-  } else {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    return;
+  }
+
+  if (itineraryDays.length) {
+    document.getElementById("day-0")?.scrollIntoView({
+      behavior: "smooth",
+      block: "start"
+    });
   }
 }
 
-function formatTripDates(start, end) {
-  if (!start || !end) return "Itinerario";
+function observeCurrentDay() {
+  const sections = [...document.querySelectorAll(".day")];
+  const buttons = [...document.querySelectorAll(".day-nav__button")];
 
-  const s = parseLocalDate(start);
-  const e = parseLocalDate(end);
+  const observer = new IntersectionObserver(entries => {
+    const visible = entries
+      .filter(entry => entry.isIntersecting)
+      .sort((a, b) => b.intersectionRatio - a.intersectionRatio)[0];
 
-  const startText = s.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short"
+    if (!visible) return;
+
+    buttons.forEach(button => {
+      button.classList.toggle(
+        "is-active",
+        button.dataset.target === visible.target.id
+      );
+    });
+  }, {
+    rootMargin: "-90px 0px -55% 0px",
+    threshold: [0, .2, .5]
   });
 
-  const endText = e.toLocaleDateString("it-IT", {
-    day: "numeric",
-    month: "short",
-    year: "numeric"
-  });
-
-  return `${startText} → ${endText}`;
+  sections.forEach(section => observer.observe(section));
 }
 
-function parseLocalDate(value) {
-  const [year, month, day] = value.split("-").map(Number);
-  return new Date(year, month - 1, day);
+function normalizeUrl(value) {
+  if (!value) return "";
+
+  const markdownLink = value.match(/^\[.*?\]\((https?:\/\/[^)]+)\)$/i);
+  if (markdownLink) return markdownLink[1];
+
+  if (/^https?:\/\//i.test(value)) return value;
+
+  return "";
 }
 
-function capitalize(value) {
-  return value ? value.charAt(0).toUpperCase() + value.slice(1) : "";
+function linkLabel(url) {
+  const lower = url.toLowerCase();
+
+  if (lower.includes("google.com/maps") || lower.includes("maps.app.goo.gl")) {
+    return "Apri in Maps";
+  }
+
+  if (lower.includes("getyourguide") || lower.includes("gyg.me")) {
+    return "Prenotazione";
+  }
+
+  return "Apri link";
 }
 
-function iconFor(text) {
-  const t = text.toLowerCase();
+function eventIcon(text) {
+  const value = String(text || "").toLowerCase();
 
-  if (/malpensa|volo|partenza|muscat|bangkok|aeroporto|arrivo/.test(t)) return "✈️";
-  if (/hotel|rientro|check-in|check out/.test(t)) return "🏨";
-  if (/colazione/.test(t)) return "☕";
-  if (/cena|pranzo|ristorante/.test(t)) return "🍜";
-  if (/palazzo|wat |tempio|templi/.test(t)) return "🏯";
-  if (/tour|escursione/.test(t)) return "🎟️";
-  if (/crociera|barca/.test(t)) return "🚢";
-  if (/shopping|centri commerciali|chinatown/.test(t)) return "🛍️";
-  if (/rooftop/.test(t)) return "🌇";
-  if (/taxi|trasferimento/.test(t)) return "🚕";
+  if (/malpensa|muscat|aeroporto|volo|partenza|arrivo.*bangkok/.test(value)) return "✈";
+  if (/hotel|rientro/.test(value)) return "▣";
+  if (/colazione/.test(value)) return "☕";
+  if (/cena|pranzo|ristorante/.test(value)) return "●";
+  if (/palazzo|wat |tempio/.test(value)) return "◆";
+  if (/crociera|barca/.test(value)) return "≈";
+  if (/chinatown|centri commerciali|shopping/.test(value)) return "◇";
+  if (/rooftop/.test(value)) return "△";
 
-  return "📍";
+  return "•";
 }
 
-function linkifyText(text) {
-  const escaped = escapeHtml(text);
+function formatNote(text) {
+  let escaped = escapeHtml(text);
 
-  return escaped.replace(
-    /(https?:\/\/[^\s<]+)/g,
-    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>'
+  escaped = escaped.replace(
+    /\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>'
   );
+
+  escaped = escaped.replace(
+    /(^|\s)(https?:\/\/[^\s<]+)/g,
+    '$1<a href="$2" target="_blank" rel="noopener noreferrer">$2</a>'
+  );
+
+  return escaped;
+}
+
+function extractTime(value) {
+  const match = String(value || "").match(/(\d{1,2}:\d{2})/);
+  return match ? match[1] : "";
+}
+
+function toDateKey(date) {
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0")
+  ].join("-");
+}
+
+function capitalize(text) {
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : "";
 }
 
 function escapeHtml(value) {
@@ -252,8 +430,8 @@ function escapeAttribute(value) {
   return escapeHtml(value);
 }
 
-function setStatus(message, error = false) {
-  const element = $("#status");
-  element.textContent = message;
-  element.classList.toggle("error", error);
+function setStatus(message, isError = false) {
+  const status = $("#status");
+  status.textContent = message;
+  status.classList.toggle("status--error", isError);
 }

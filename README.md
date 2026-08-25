@@ -1,11 +1,21 @@
 # Thailandia 2026
 
-Web app responsive per visualizzare l'itinerario del viaggio.
+Web app statica per visualizzare un itinerario di viaggio.
 
-## File
+## Fonte dati
 
-- `index.html`: pagina principale
-- `style.css`: grafica
-- `app.js`: lettura del JSON e rendering dell'itinerario
+L'app legge direttamente:
 
-I dati provengono da Google Sheets tramite Google Apps Script.
+https://sheetdb.io/api/v1/jvs32otchwgus?sheet=Itinerario
+
+Sono supportate le colonne:
+
+- Giorno
+- Ore
+- Descrizione
+- Note
+- Link
+
+## Pubblicazione
+
+Il progetto è pensato per GitHub Pages.
