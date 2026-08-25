@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f172a">
+  <meta name="description" content="Itinerario Thailandia 2026">
+  <title>Thailandia 2026</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div class="eyebrow">VIAGGIO</div>
+      <h1>Thailandia 2026</h1>
+      <p id="trip-dates">Caricamento itinerario...</p>
+      <div class="hero-actions">
+        <button id="today-btn" class="primary-btn" type="button">Oggi</button>
+        <button id="refresh-btn" class="secondary-btn" type="button">Aggiorna</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section id="status" class="status">Caricamento dati...</section>
+    <nav id="day-nav" class="day-nav" aria-label="Giorni del viaggio"></nav>
+    <section id="itinerary" class="itinerary"></section>
+  </main>
+
+  <footer>Dati aggiornati da Google Sheets</footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
