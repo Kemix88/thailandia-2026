@@ -3,26 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#123c33">
+  <meta name="theme-color" content="#031936">
   <meta name="description" content="Itinerario Thailandia 2026">
   <title>Thailandia 2026</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="hero">
+    <button class="menu-button" type="button" aria-label="Menu">
+      <span></span>
+      <span></span>
+      <span></span>
+    </button>
+
     <div class="hero__content">
-      <p class="kicker">ITINERARIO DI VIAGGIO</p>
       <h1>Thailandia 2026</h1>
       <p id="tripDates" class="trip-dates">24 novembre – 3 dicembre 2026</p>
 
       <div class="hero__buttons">
-        <button id="todayButton" class="button button--light" type="button">Vai a oggi</button>
-        <button id="refreshButton" class="button button--ghost" type="button">Aggiorna</button>
+        <button id="todayButton" class="button" type="button">
+          <span aria-hidden="true">▣</span>
+          Vai a oggi
+        </button>
+        <button id="refreshButton" class="button" type="button">
+          <span aria-hidden="true">↻</span>
+          Aggiorna
+        </button>
       </div>
     </div>
   </header>
 
   <main class="container">
+    <nav class="app-tabs" aria-label="Sezioni">
+      <button class="app-tabs__button is-active" type="button" data-action="itinerary">
+        <span class="app-tabs__icon" aria-hidden="true">☷</span>
+        <span>Itinerario</span>
+      </button>
+      <button class="app-tabs__button" type="button" data-action="today">
+        <span class="app-tabs__icon" aria-hidden="true">⊙</span>
+        <span>Oggi</span>
+      </button>
+      <button class="app-tabs__button" type="button">
+        <span class="app-tabs__icon" aria-hidden="true">▱</span>
+        <span>Prenotazioni</span>
+      </button>
+      <button class="app-tabs__button" type="button">
+        <span class="app-tabs__icon" aria-hidden="true">ⓘ</span>
+        <span>Info utili</span>
+      </button>
+    </nav>
     <div id="status" class="status">Caricamento itinerario…</div>
     <nav id="dayNav" class="day-nav" aria-label="Giorni del viaggio"></nav>
     <section id="itinerary" class="itinerary"></section>

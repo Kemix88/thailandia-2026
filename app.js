@@ -7,6 +7,7 @@ let itineraryDays = [];
 document.addEventListener("DOMContentLoaded", () => {
   $("#refreshButton").addEventListener("click", loadData);
   $("#todayButton").addEventListener("click", scrollToToday);
+  setupTabs();
   loadData();
 });
 
@@ -189,27 +190,6 @@ function parseDayLabel(value) {
 function renderNavigation(days) {
   const nav = $("#dayNav");
   nav.innerHTML = "";
-
-  days.forEach((day, index) => {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "day-nav__button";
-    button.dataset.target = `day-${index}`;
-
-    button.innerHTML = `
-      <span class="day-nav__number">${day.dateObject.getDate()}</span>
-      <span class="day-nav__month">${day.dateObject.toLocaleDateString("it-IT", { month: "short" })}</span>
-    `;
-
-    button.addEventListener("click", () => {
-      document.getElementById(`day-${index}`)?.scrollIntoView({
-        behavior: "smooth",
-        block: "start"
-      });
-    });
-
-    nav.appendChild(button);
-  });
 }
 
 function renderItinerary(days) {
@@ -230,14 +210,19 @@ function renderItinerary(days) {
       day: "numeric",
       month: "long",
       year: "numeric"
-    });
+    }).toUpperCase();
 
     section.innerHTML = `
-      <div class="day__header">
-        <h2 class="day__title">${escapeHtml(day.weekday)}</h2>
-        <div class="day__date">${escapeHtml(formattedDate)}</div>
+      <div class="day__card">
+        <div class="day__header">
+          <div>
+            <h2 class="day__title">${escapeHtml(formattedDate)}</h2>
+            <div class="day__date">${escapeHtml(day.weekday)}</div>
+          </div>
+          <button class="day__toggle" type="button" aria-label="Comprimi giorno">⌄</button>
+        </div>
+        <div class="day__events"></div>
       </div>
-      <div class="day__events"></div>
     `;
 
     const eventsRoot = section.querySelector(".day__events");
@@ -247,6 +232,14 @@ function renderItinerary(days) {
     } else {
       day.events.forEach(event => eventsRoot.appendChild(createEvent(event)));
     }
+
+    section.querySelector(".day__toggle").addEventListener("click", () => {
+      const isCollapsed = section.classList.toggle("is-collapsed");
+      section.querySelector(".day__toggle").setAttribute(
+        "aria-label",
+        isCollapsed ? "Espandi giorno" : "Comprimi giorno"
+      );
+    });
 
     root.appendChild(section);
   });
@@ -259,14 +252,15 @@ function createEvent(event) {
   article.className = "event";
 
   const linkButton = event.link
-    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer">${linkLabel(event.link)}</a>`
+    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(linkLabel(event.link))}">↗</a>`
     : "";
 
   article.innerHTML = `
     <div class="event__time">${escapeHtml(event.time || "")}</div>
-    <div class="event__card">
+    <div class="event__divider" aria-hidden="true"></div>
+    <div class="event__body">
       ${event.description
-        ? `<div class="event__title">${eventIcon(event.description)} ${escapeHtml(event.description)}</div>`
+        ? `<div class="event__title">${escapeHtml(event.description)}</div>`
         : ""}
       ${event.note
         ? `<div class="event__note">${formatNote(event.note)}</div>`
@@ -276,6 +270,27 @@ function createEvent(event) {
   `;
 
   return article;
+}
+
+function setupTabs() {
+  document.querySelectorAll(".app-tabs__button").forEach(button => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll(".app-tabs__button").forEach(item => {
+        item.classList.toggle("is-active", item === button);
+      });
+
+      if (button.dataset.action === "today") {
+        scrollToToday();
+      }
+
+      if (button.dataset.action === "itinerary") {
+        $("#itinerary")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start"
+        });
+      }
+    });
+  });
 }
 
 function updateTripDates(days) {
