@@ -6,6 +6,9 @@
   <meta name="theme-color" content="#031936">
   <meta name="description" content="Itinerario Thailandia 2026">
   <title>Thailandia 2026</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Google+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,7 +21,7 @@
 
     <div class="hero__content">
       <h1>Thailandia 2026</h1>
-      <p id="tripDates" class="trip-dates">24 novembre – 3 dicembre 2026</p>
+      <p id="tripDates" class="trip-dates">24 novembre - 1 dicembre 2026</p>
 
       <div class="hero__buttons">
         <button id="todayButton" class="button" type="button">
@@ -39,9 +42,9 @@
         <span class="app-tabs__icon" aria-hidden="true">☷</span>
         <span>Itinerario</span>
       </button>
-      <button class="app-tabs__button" type="button" data-action="today">
-        <span class="app-tabs__icon" aria-hidden="true">⊙</span>
-        <span>Oggi</span>
+      <button class="app-tabs__button" type="button" data-action="weather">
+        <span class="app-tabs__icon" aria-hidden="true">☀</span>
+        <span>Meteo</span>
       </button>
       <button class="app-tabs__button" type="button">
         <span class="app-tabs__icon" aria-hidden="true">▱</span>
@@ -55,10 +58,17 @@
     <div id="status" class="status">Caricamento itinerario…</div>
     <nav id="dayNav" class="day-nav" aria-label="Giorni del viaggio"></nav>
     <section id="itinerary" class="itinerary"></section>
+    <section id="weather" class="weather" aria-label="Meteo" hidden>
+      <iframe src="https://www.meteoblue.com/it/tempo/widget/three/lausanne_svizzera_6299715?geoloc=fixed&amp;nocurrent=0&amp;noforecast=0&amp;tempunit=CELSIUS&amp;windunit=KILOMETER_PER_HOUR&amp;days=4&amp;layout=dark&amp;user_key=307ff177bedc44a9&amp;embed_key=415331773b39e225&amp;sig=fac54efc72ebe15dacbd34550fc02e0dc612b3ab70e833a9402e0a3da7ce2d78" frameborder="0" scrolling="NO" allowtransparency="true" sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox" style="width: 460px;height: 571px;border: 0;overflow: hidden;"></iframe>
+      <div class="weather__credit">
+        <!-- DO NOT REMOVE THIS LINK -->
+        <a href="https://www.meteoblue.com/it/tempo/settimana/index" target="_blank" rel="noopener">meteoblue</a>
+      </div>
+    </section>
   </main>
 
   <footer class="footer">
-    Dati caricati da Google Sheets tramite SheetDB
+    Dati caricati dal file JSON del viaggio
   </footer>
 
   <script src="app.js"></script>

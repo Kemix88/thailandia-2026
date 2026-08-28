@@ -6,15 +6,14 @@ Web app statica per visualizzare un itinerario di viaggio.
 
 L'app legge direttamente:
 
-https://sheetdb.io/api/v1/jvs32otchwgus?sheet=Itinerario
+https://script.google.com/macros/s/AKfycbz2X2CTXf9hu6dS-j2QjibDwpk06WeNF9qh6MkHApt-UFYpVJYUcwtvPShafBldmJPZAw/exec
 
-Sono supportate le colonne:
+Sono supportati:
 
-- Giorno
-- Ore
-- Descrizione
-- Note
-- Link
+- metadati del viaggio in `viaggio`
+- giorni in `giorni[]`
+- eventi giornalieri in `giorni[].eventi[]`
+- campi evento `ora`, `descrizione`, `note`, `link`
 
 ## Pubblicazione
 

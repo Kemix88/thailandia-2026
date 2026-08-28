@@ -1,13 +1,20 @@
-const API_URL = "https://sheetdb.io/api/v1/jvs32otchwgus?sheet=Itinerario";
+const API_URL = "https://script.google.com/macros/s/AKfycbz2X2CTXf9hu6dS-j2QjibDwpk06WeNF9qh6MkHApt-UFYpVJYUcwtvPShafBldmJPZAw/exec";
 const TRIP_YEAR = 2026;
+const TIMELINE_UPDATE_INTERVAL = 60 * 1000;
 
 const $ = selector => document.querySelector(selector);
 let itineraryDays = [];
+let eventDetailsCounter = 0;
+let timelineUpdateTimer = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   $("#refreshButton").addEventListener("click", loadData);
-  $("#todayButton").addEventListener("click", scrollToToday);
+  $("#todayButton").addEventListener("click", () => {
+    showAppView("itinerary");
+    scrollToToday();
+  });
   setupTabs();
+  setupTimelineTimer();
   loadData();
 });
 
@@ -21,16 +28,13 @@ async function loadData() {
       throw new Error(`Errore HTTP ${response.status}`);
     }
 
-    const rows = await response.json();
+    const payload = await response.json();
+    const itinerary = normalizeItineraryData(payload);
 
-    if (!Array.isArray(rows)) {
-      throw new Error("Il JSON ricevuto non è un array di righe.");
-    }
-
-    itineraryDays = normalizeRows(rows);
+    itineraryDays = itinerary.days;
     renderNavigation(itineraryDays);
     renderItinerary(itineraryDays);
-    updateTripDates(itineraryDays);
+    updateTripHeader(itinerary.meta, itineraryDays);
 
     const now = new Date();
     setStatus(
@@ -42,10 +46,75 @@ async function loadData() {
   } catch (error) {
     console.error(error);
     setStatus(
-      "Non riesco a caricare i dati da SheetDB. Verifica che l'API sia pubblica e che il foglio si chiami Itinerario.",
+      "Non riesco a caricare i dati dall'endpoint JSON. Verifica che l'URL sia pubblico e restituisca JSON valido.",
       true
     );
   }
+}
+
+function normalizeItineraryData(payload) {
+  if (Array.isArray(payload)) {
+    return {
+      meta: null,
+      days: normalizeRows(payload)
+    };
+  }
+
+  if (payload && typeof payload === "object" && Array.isArray(payload.giorni)) {
+    const meta = normalizeTripMeta(payload.viaggio);
+
+    return {
+      meta,
+      days: normalizeStructuredDays(payload.giorni)
+    };
+  }
+
+  throw new Error("Formato JSON non supportato.");
+}
+
+function normalizeTripMeta(meta) {
+  if (!meta || typeof meta !== "object") return null;
+
+  return {
+    name: String(getField(meta, ["nome", "Nome", "name", "Name"]) || "").trim(),
+    start: String(getField(meta, ["inizio", "Inizio", "start", "Start"]) || "").trim(),
+    end: String(getField(meta, ["fine", "Fine", "end", "End"]) || "").trim(),
+    timezone: String(getField(meta, ["timezone", "Timezone", "timeZone", "TimeZone"]) || "").trim()
+  };
+}
+
+function normalizeStructuredDays(days) {
+  return days
+    .map(day => {
+      const dateObject = parseIsoDate(getField(day, ["data", "Data", "date", "Date"]));
+
+      if (!dateObject) return null;
+
+      const rawEvents = getField(day, ["eventi", "Eventi", "events", "Events"]);
+      const events = Array.isArray(rawEvents) ? rawEvents : [];
+
+      return {
+        date: toDateKey(dateObject),
+        dateObject,
+        weekday: String(getField(day, ["giorno", "Giorno", "weekday", "Weekday"]) || "").trim()
+          || capitalize(dateObject.toLocaleDateString("it-IT", { weekday: "long" })),
+        events: events
+          .map(event => {
+            const time = normalizeTime(getField(event, ["ora", "Ora", "ore", "Ore", "time", "Time"]));
+            const description = String(getField(event, ["descrizione", "Descrizione", "description", "Description"]) || "").trim();
+            const note = String(getField(event, ["note", "Note", "notes", "Notes"]) || "").trim();
+            const link = normalizeUrl(String(getField(event, ["link", "Link", "url", "URL"]) || "").trim());
+
+            if (![time, description, note, link].some(value => value !== "")) return null;
+
+            return { time, description, note, link };
+          })
+          .filter(Boolean)
+          .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"))
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.dateObject - b.dateObject);
 }
 
 function normalizeRows(rows) {
@@ -102,6 +171,8 @@ function normalizeRows(rows) {
 }
 
 function getField(row, possibleNames) {
+  if (!row || typeof row !== "object") return "";
+
   for (const name of possibleNames) {
     if (Object.prototype.hasOwnProperty.call(row, name)) {
       return row[name];
@@ -187,6 +258,44 @@ function parseDayLabel(value) {
   };
 }
 
+function parseIsoDate(value) {
+  const match = String(value || "").trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const dateObject = new Date(year, month - 1, day);
+
+  if (
+    dateObject.getFullYear() !== year ||
+    dateObject.getMonth() !== month - 1 ||
+    dateObject.getDate() !== day
+  ) return null;
+
+  return dateObject;
+}
+
+function normalizeTime(value) {
+  const match = String(value || "").trim().match(/^(\d{1,2}):(\d{2})$/);
+  if (!match) return "";
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+
+  if (hour > 23 || minute > 59) return "";
+
+  return `${String(hour).padStart(2, "0")}:${String(minute).padStart(2, "0")}`;
+}
+
+function timeToMinutes(value) {
+  const normalized = normalizeTime(value);
+  if (!normalized) return null;
+
+  const [hour, minute] = normalized.split(":").map(Number);
+  return hour * 60 + minute;
+}
+
 function renderNavigation(days) {
   const nav = $("#dayNav");
   nav.innerHTML = "";
@@ -195,9 +304,10 @@ function renderNavigation(days) {
 function renderItinerary(days) {
   const root = $("#itinerary");
   root.innerHTML = "";
+  eventDetailsCounter = 0;
 
   if (!days.length) {
-    root.innerHTML = '<div class="empty-day">Nessuna attività trovata nel foglio Itinerario.</div>';
+    root.innerHTML = '<div class="empty-day">Nessuna attività trovata nel file JSON.</div>';
     return;
   }
 
@@ -205,6 +315,7 @@ function renderItinerary(days) {
     const section = document.createElement("section");
     section.className = "day";
     section.id = `day-${index}`;
+    section.setAttribute("data-day-date", day.date);
 
     const formattedDate = day.dateObject.toLocaleDateString("it-IT", {
       day: "numeric",
@@ -219,7 +330,6 @@ function renderItinerary(days) {
             <h2 class="day__title">${escapeHtml(formattedDate)}</h2>
             <div class="day__date">${escapeHtml(day.weekday)}</div>
           </div>
-          <button class="day__toggle" type="button" aria-label="Comprimi giorno">⌄</button>
         </div>
         <div class="day__events"></div>
       </div>
@@ -233,43 +343,137 @@ function renderItinerary(days) {
       day.events.forEach(event => eventsRoot.appendChild(createEvent(event)));
     }
 
-    section.querySelector(".day__toggle").addEventListener("click", () => {
-      const isCollapsed = section.classList.toggle("is-collapsed");
-      section.querySelector(".day__toggle").setAttribute(
-        "aria-label",
-        isCollapsed ? "Espandi giorno" : "Comprimi giorno"
-      );
-    });
-
     root.appendChild(section);
   });
 
+  updateTimelineMarkers();
   observeCurrentDay();
 }
 
 function createEvent(event) {
   const article = document.createElement("article");
-  article.className = "event";
+  const hasNote = String(event.note || "").trim() !== "";
+  const detailsId = hasNote ? `event-details-${eventDetailsCounter += 1}` : "";
+
+  article.className = `event${hasNote ? " event--expandable" : ""}`;
+  article.setAttribute("data-event-time", event.time || "");
 
   const linkButton = event.link
-    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(linkLabel(event.link))}">↗</a>`
+    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(linkLabel(event.link))}">&#8599;</a>`
     : "";
+  const title = event.description ? escapeHtml(event.description) : "Dettagli";
+  const summary = hasNote
+    ? `<button class="event__summary" type="button" aria-expanded="false" aria-controls="${detailsId}">
+        <span class="event__title">${title}</span>
+        <img class="event__chevron" src="assets/arrow-down.svg" alt="" aria-hidden="true">
+      </button>`
+    : `<div class="event__summary">
+        <span class="event__title">${title}</span>
+      </div>`;
 
   article.innerHTML = `
+    <div class="event__timeline" aria-hidden="true"></div>
     <div class="event__time">${escapeHtml(event.time || "")}</div>
     <div class="event__divider" aria-hidden="true"></div>
     <div class="event__body">
-      ${event.description
-        ? `<div class="event__title">${escapeHtml(event.description)}</div>`
+      ${summary}
+      ${hasNote
+        ? `<div id="${detailsId}" class="event__details" hidden>${formatNote(event.note)}</div>`
         : ""}
-      ${event.note
-        ? `<div class="event__note">${formatNote(event.note)}</div>`
-        : ""}
-      ${linkButton}
     </div>
+    ${linkButton}
   `;
 
+  const summaryButton = article.querySelector(".event__summary[aria-controls]");
+  summaryButton?.addEventListener("click", () => toggleEventDetails(summaryButton));
+
   return article;
+}
+
+function toggleEventDetails(button) {
+  const details = document.getElementById(button.getAttribute("aria-controls"));
+  if (!details) return;
+
+  const isOpen = button.getAttribute("aria-expanded") === "true";
+  button.setAttribute("aria-expanded", String(!isOpen));
+  details.hidden = isOpen;
+}
+
+function setupTimelineTimer() {
+  if (timelineUpdateTimer) return;
+
+  timelineUpdateTimer = window.setInterval(
+    updateTimelineMarkers,
+    TIMELINE_UPDATE_INTERVAL
+  );
+}
+
+function updateTimelineMarkers(now = new Date()) {
+  const todayKey = toDateKey(now);
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+
+  document.querySelectorAll(".day").forEach(dayRoot => {
+    const dayKey = dayRoot.getAttribute("data-day-date");
+    const eventsRoot = dayRoot.querySelector(".day__events");
+    if (!eventsRoot) return;
+
+    const events = [...eventsRoot.querySelectorAll(".event")];
+
+    events.forEach(event => {
+      event.classList.remove(
+        "event--timeline-past",
+        "event--timeline-current",
+        "event--timeline-current-no-past"
+      );
+    });
+
+    if (dayKey < todayKey) {
+      events.forEach(event => event.classList.add("event--timeline-past"));
+      return;
+    }
+
+    if (dayKey > todayKey) return;
+
+    const timedEvents = events
+      .map((event, index) => ({
+        event,
+        index,
+        minutes: timeToMinutes(event.getAttribute("data-event-time"))
+      }))
+      .filter(item => item.minutes !== null);
+
+    if (!timedEvents.length) return;
+
+    const current = timedEvents.reduce((closest, item) => {
+      const itemDistance = Math.abs(item.minutes - nowMinutes);
+      const closestDistance = Math.abs(closest.minutes - nowMinutes);
+
+      if (itemDistance < closestDistance) return item;
+      if (
+        itemDistance === closestDistance &&
+        item.minutes >= nowMinutes &&
+        closest.minutes < nowMinutes
+      ) return item;
+
+      return closest;
+    });
+
+    events.forEach((event, index) => {
+      if (index < current.index) {
+        event.classList.add("event--timeline-past");
+      }
+    });
+
+    const hasPastBeforeMarker = timedEvents.some(item =>
+      item.index < current.index && item.minutes <= nowMinutes
+    );
+
+    current.event.classList.add("event--timeline-current");
+
+    if (current.minutes > nowMinutes && !hasPastBeforeMarker) {
+      current.event.classList.add("event--timeline-current-no-past");
+    }
+  });
 }
 
 function setupTabs() {
@@ -279,18 +483,45 @@ function setupTabs() {
         item.classList.toggle("is-active", item === button);
       });
 
-      if (button.dataset.action === "today") {
-        scrollToToday();
-      }
-
       if (button.dataset.action === "itinerary") {
+        showAppView("itinerary");
         $("#itinerary")?.scrollIntoView({
           behavior: "smooth",
           block: "start"
         });
       }
+
+      if (button.dataset.action === "weather") {
+        showAppView("weather");
+      }
     });
   });
+}
+
+function showAppView(view) {
+  const isWeather = view === "weather";
+
+  $("#itinerary").hidden = isWeather;
+  $("#weather").hidden = !isWeather;
+  $("#status").hidden = isWeather;
+  $("#dayNav").hidden = isWeather;
+}
+
+function updateTripHeader(meta, days) {
+  if (meta?.name) {
+    const title = document.querySelector(".hero h1");
+    if (title) title.textContent = meta.name;
+  }
+
+  const start = parseIsoDate(meta?.start);
+  const end = parseIsoDate(meta?.end);
+
+  if (start && end) {
+    $("#tripDates").textContent = formatDateRange(start, end);
+    return;
+  }
+
+  updateTripDates(days);
 }
 
 function updateTripDates(days) {
@@ -299,6 +530,10 @@ function updateTripDates(days) {
   const first = days[0].dateObject;
   const last = days[days.length - 1].dateObject;
 
+  $("#tripDates").textContent = formatDateRange(first, last);
+}
+
+function formatDateRange(first, last) {
   const firstText = first.toLocaleDateString("it-IT", {
     day: "numeric",
     month: "long"
@@ -310,7 +545,7 @@ function updateTripDates(days) {
     year: "numeric"
   });
 
-  $("#tripDates").textContent = `${firstText} – ${lastText}`;
+  return `${firstText} – ${lastText}`;
 }
 
 function scrollToToday() {
