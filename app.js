@@ -1,4 +1,4 @@
-const API_URL = "https://script.google.com/macros/s/AKfycbz2X2CTXf9hu6dS-j2QjibDwpk06WeNF9qh6MkHApt-UFYpVJYUcwtvPShafBldmJPZAw/exec";
+const API_URL = "https://sheetdb.io/api/v1/jvs32otchwgus?sheet=Itinerario";
 const TRIP_YEAR = 2026;
 const TIMELINE_UPDATE_INTERVAL = 60 * 1000;
 
@@ -22,7 +22,10 @@ async function loadData() {
   setStatus("Caricamento itinerario…");
 
   try {
-    const response = await fetch(API_URL, { cache: "no-store" });
+    const response = await fetch(API_URL, {
+      cache: "no-store",
+      headers: { Accept: "application/json" }
+    });
 
     if (!response.ok) {
       throw new Error(`Errore HTTP ${response.status}`);
@@ -46,7 +49,7 @@ async function loadData() {
   } catch (error) {
     console.error(error);
     setStatus(
-      "Non riesco a caricare i dati dall'endpoint JSON. Verifica che l'URL sia pubblico e restituisca JSON valido.",
+      "Non riesco a caricare l'itinerario da SheetDB. Riprova tra qualche istante.",
       true
     );
   }
@@ -102,12 +105,14 @@ function normalizeStructuredDays(days) {
           .map(event => {
             const time = normalizeTime(getField(event, ["ora", "Ora", "ore", "Ore", "time", "Time"]));
             const description = String(getField(event, ["descrizione", "Descrizione", "description", "Description"]) || "").trim();
+            const duration = String(getField(event, ["durata (ore)", "Durata (ore)", "durata", "Durata", "duration", "Duration"]) || "").trim();
             const note = String(getField(event, ["note", "Note", "notes", "Notes"]) || "").trim();
-            const link = normalizeUrl(String(getField(event, ["link", "Link", "url", "URL"]) || "").trim());
+            const rawLink = String(getField(event, ["link", "Link", "url", "URL"]) || "").trim();
+            const { url: link, text: linkText } = normalizeLinkField(rawLink);
 
-            if (![time, description, note, link].some(value => value !== "")) return null;
+            if (![description, duration, note, rawLink].some(value => value !== "")) return null;
 
-            return { time, description, note, link };
+            return { time, description, duration, note, link, linkText };
           })
           .filter(Boolean)
           .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"))
@@ -124,15 +129,18 @@ function normalizeRows(rows) {
     const giornoRaw = getField(row, ["Giorno", "giorno"]);
     const oreRaw = getField(row, ["Ore", "ore", "Ora", "ora"]);
     const description = getField(row, ["Descrizione", "descrizione"]);
+    const duration = getField(row, ["Durata (ore)", "durata (ore)", "Durata", "durata", "Duration", "duration"]);
     const note = getField(row, ["Note", "note"]);
-    const link = getField(row, ["Link", "link"]);
+    const rawLink = getField(row, ["Link", "link", "URL", "url"]);
 
-    const hasAnyContent = [giornoRaw, oreRaw, description, note, link]
+    const hasAnyContent = [giornoRaw, oreRaw, description, duration, note, rawLink]
       .some(value => String(value || "").trim() !== "");
 
     if (!hasAnyContent) return;
 
-    const parsed = parseDateTime(oreRaw) || parseDayLabel(giornoRaw);
+    const parsedDay = parseDayLabel(giornoRaw);
+    const parsedDateTime = parseDateTime(oreRaw);
+    const parsed = parsedDay || parsedDateTime;
 
     if (!parsed) return;
 
@@ -149,12 +157,19 @@ function normalizeRows(rows) {
       });
     }
 
-    if (description || note || link || parsed.time) {
+    const hasEventContent = [description, duration, note, rawLink]
+      .some(value => String(value || "").trim() !== "");
+
+    if (hasEventContent) {
+      const { url: link, text: linkText } = normalizeLinkField(rawLink);
+
       grouped.get(key).events.push({
-        time: parsed.time || extractTime(oreRaw),
+        time: parsedDateTime?.time || extractTime(oreRaw),
         description: String(description || "").trim(),
+        duration: String(duration || "").trim(),
         note: String(note || "").trim(),
-        link: normalizeUrl(String(link || "").trim())
+        link,
+        linkText
       });
     }
   });
@@ -358,9 +373,16 @@ function createEvent(event) {
   article.className = `event${hasNote ? " event--expandable" : ""}`;
   article.setAttribute("data-event-time", event.time || "");
 
-  const linkButton = event.link
-    ? `<a class="event__link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttribute(linkLabel(event.link))}">&#8599;</a>`
-    : "";
+  const metadata = [
+    event.duration
+      ? `<span class="event__meta-item event__duration">Durata: ${escapeHtml(event.duration)}</span>`
+      : "",
+    event.linkText
+      ? event.link
+        ? `<a class="event__meta-item event__meta-link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer">Link</a>`
+        : `<span class="event__meta-item">Link</span>`
+      : ""
+  ].filter(Boolean).join("");
   const title = event.description ? escapeHtml(event.description) : "Dettagli";
   const summary = hasNote
     ? `<button class="event__summary" type="button" aria-expanded="false" aria-controls="${detailsId}">
@@ -377,11 +399,11 @@ function createEvent(event) {
     <div class="event__divider" aria-hidden="true"></div>
     <div class="event__body">
       ${summary}
+      ${metadata ? `<div class="event__meta">${metadata}</div>` : ""}
       ${hasNote
         ? `<div id="${detailsId}" class="event__details" hidden>${formatNote(event.note)}</div>`
         : ""}
     </div>
-    ${linkButton}
   `;
 
   const summaryButton = article.querySelector(".event__summary[aria-controls]");
@@ -605,18 +627,14 @@ function normalizeUrl(value) {
   return "";
 }
 
-function linkLabel(url) {
-  const lower = url.toLowerCase();
+function normalizeLinkField(value) {
+  const text = String(value || "").trim();
+  const url = normalizeUrl(text);
 
-  if (lower.includes("google.com/maps") || lower.includes("maps.app.goo.gl")) {
-    return "Apri in Maps";
-  }
-
-  if (lower.includes("getyourguide") || lower.includes("gyg.me")) {
-    return "Prenotazione";
-  }
-
-  return "Apri link";
+  return {
+    url,
+    text: text ? "Link" : ""
+  };
 }
 
 function eventIcon(text) {
