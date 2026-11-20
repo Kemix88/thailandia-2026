@@ -59,11 +59,14 @@
     <nav id="dayNav" class="day-nav" aria-label="Giorni del viaggio"></nav>
     <section id="itinerary" class="itinerary"></section>
     <section id="weather" class="weather" aria-label="Meteo" hidden>
-      <iframe src="https://www.meteoblue.com/it/tempo/widget/three/lausanne_svizzera_6299715?geoloc=fixed&amp;nocurrent=0&amp;noforecast=0&amp;tempunit=CELSIUS&amp;windunit=KILOMETER_PER_HOUR&amp;days=4&amp;layout=dark&amp;user_key=307ff177bedc44a9&amp;embed_key=415331773b39e225&amp;sig=fac54efc72ebe15dacbd34550fc02e0dc612b3ab70e833a9402e0a3da7ce2d78" frameborder="0" scrolling="NO" allowtransparency="true" sandbox="allow-same-origin allow-scripts allow-popups allow-popups-to-escape-sandbox" style="width: 460px;height: 571px;border: 0;overflow: hidden;"></iframe>
-      <div class="weather__credit">
-        <!-- DO NOT REMOVE THIS LINK -->
-        <a href="https://www.meteoblue.com/it/tempo/settimana/index" target="_blank" rel="noopener">meteoblue</a>
-      </div>
+      <article class="weather__forecast">
+        <h2 class="weather__title">Bangkok</h2>
+        <iframe width="650" height="187" src="https://embed.windy.com/embed.html?type=forecast&amp;location=coordinates&amp;detail=true&amp;detailLat=13.752493799999998&amp;detailLon=100.49350889999998&amp;metricTemp=default&amp;metricRain=default&amp;metricWind=default" title="Previsioni meteo per Bangkok" frameborder="0" loading="lazy"></iframe>
+      </article>
+      <article class="weather__forecast">
+        <h2 class="weather__title">Phuket</h2>
+        <iframe width="650" height="187" src="https://embed.windy.com/embed.html?type=forecast&amp;location=coordinates&amp;detail=true&amp;detailLat=7.884790099999998&amp;detailLon=98.3891503&amp;metricTemp=default&amp;metricRain=default&amp;metricWind=default" title="Previsioni meteo per Phuket" frameborder="0" loading="lazy"></iframe>
+      </article>
     </section>
   </main>
 

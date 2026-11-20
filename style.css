@@ -278,21 +278,39 @@ h1 {
 .weather {
   display: grid;
   justify-items: center;
-  gap: 8px;
+  gap: 18px;
   padding: 8px 0 0;
 }
 
-.weather iframe {
-  width: min(100%, 460px) !important;
-  max-width: 100%;
+.weather__forecast {
+  display: grid;
+  gap: 10px;
+  width: 100%;
+  margin: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  box-shadow: var(--shadow);
 }
 
-.weather__credit {
-  font-size: 12px;
-}
-
-.weather__credit a {
+.weather__title {
+  margin: 0;
   color: var(--accent);
+  font-size: clamp(18px, 2.4vw, 24px);
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+
+.weather__forecast iframe {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  border: 0;
+  border-radius: 6px;
 }
 
 .day {
@@ -461,15 +479,6 @@ button.event__summary {
   color: rgba(244, 251, 255, .82);
 }
 
-.event__meta-link {
-  color: var(--accent);
-  text-decoration: none;
-}
-
-.event__meta-link:hover {
-  text-decoration: underline;
-}
-
 .event__chevron {
   width: 20px;
   height: 20px;
@@ -489,7 +498,6 @@ button.event__summary {
   color: var(--muted);
   font-size: clamp(12px, 1.65vw, 16px);
   line-height: 1.45;
-  white-space: pre-line;
 }
 
 .event__details[hidden] {
@@ -498,6 +506,42 @@ button.event__summary {
 
 .event__details a {
   color: var(--accent-dark);
+}
+
+.event__note {
+  white-space: pre-line;
+}
+
+.event__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.event__links:first-child {
+  margin-top: 0;
+}
+
+.event__detail-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 4px 10px;
+  border: 1px solid rgba(53, 220, 255, .3);
+  border-radius: 999px;
+  background: rgba(53, 220, 255, .1);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.event__detail-link:hover {
+  background: rgba(53, 220, 255, .18);
+  text-decoration: underline;
+}
+
+.event__detail-link--disabled {
+  opacity: .7;
 }
 
 .empty-day {

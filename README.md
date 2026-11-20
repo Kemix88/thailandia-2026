@@ -15,12 +15,14 @@ Il JSON deve essere un array di righe con i campi:
 - `Descrizione`
 - `Durata (ore)`
 - `Note`
-- `Link`
+- `Link 1`
+- `Link 2`
 
 Le righe vengono raggruppate usando la data in `Giorno`; da `Ore` viene ricavato
 l'orario. Gli slot senza descrizione, durata, note o link non vengono mostrati.
-Qualsiasi valore non vuoto in `Link` viene mostrato con l'etichetta `Link` accanto
-alla durata. Se il valore contiene un URL completo, l'etichetta diventa cliccabile.
+I valori non vuoti in `Link 1` e `Link 2` vengono mostrati nel pannello espandibile
+dell'evento. Se un valore contiene un URL completo, la relativa etichetta diventa
+cliccabile. Il precedente campo `Link` continua a essere supportato come `Link 1`.
 
 ## Pubblicazione
 

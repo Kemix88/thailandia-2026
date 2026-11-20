@@ -107,12 +107,11 @@ function normalizeStructuredDays(days) {
             const description = String(getField(event, ["descrizione", "Descrizione", "description", "Description"]) || "").trim();
             const duration = String(getField(event, ["durata (ore)", "Durata (ore)", "durata", "Durata", "duration", "Duration"]) || "").trim();
             const note = String(getField(event, ["note", "Note", "notes", "Notes"]) || "").trim();
-            const rawLink = String(getField(event, ["link", "Link", "url", "URL"]) || "").trim();
-            const { url: link, text: linkText } = normalizeLinkField(rawLink);
+            const links = normalizeEventLinks(event);
 
-            if (![description, duration, note, rawLink].some(value => value !== "")) return null;
+            if (![description, duration, note].some(value => value !== "") && !links.length) return null;
 
-            return { time, description, duration, note, link, linkText };
+            return { time, description, duration, note, links };
           })
           .filter(Boolean)
           .sort((a, b) => (a.time || "99:99").localeCompare(b.time || "99:99"))
@@ -131,10 +130,10 @@ function normalizeRows(rows) {
     const description = getField(row, ["Descrizione", "descrizione"]);
     const duration = getField(row, ["Durata (ore)", "durata (ore)", "Durata", "durata", "Duration", "duration"]);
     const note = getField(row, ["Note", "note"]);
-    const rawLink = getField(row, ["Link", "link", "URL", "url"]);
+    const links = normalizeEventLinks(row);
 
-    const hasAnyContent = [giornoRaw, oreRaw, description, duration, note, rawLink]
-      .some(value => String(value || "").trim() !== "");
+    const hasAnyContent = [giornoRaw, oreRaw, description, duration, note]
+      .some(value => String(value || "").trim() !== "") || links.length > 0;
 
     if (!hasAnyContent) return;
 
@@ -157,19 +156,16 @@ function normalizeRows(rows) {
       });
     }
 
-    const hasEventContent = [description, duration, note, rawLink]
-      .some(value => String(value || "").trim() !== "");
+    const hasEventContent = [description, duration, note]
+      .some(value => String(value || "").trim() !== "") || links.length > 0;
 
     if (hasEventContent) {
-      const { url: link, text: linkText } = normalizeLinkField(rawLink);
-
       grouped.get(key).events.push({
         time: parsedDateTime?.time || extractTime(oreRaw),
         description: String(description || "").trim(),
         duration: String(duration || "").trim(),
         note: String(note || "").trim(),
-        link,
-        linkText
+        links
       });
     }
   });
@@ -368,23 +364,32 @@ function renderItinerary(days) {
 function createEvent(event) {
   const article = document.createElement("article");
   const hasNote = String(event.note || "").trim() !== "";
-  const detailsId = hasNote ? `event-details-${eventDetailsCounter += 1}` : "";
+  const links = Array.isArray(event.links)
+    ? event.links.filter(link => link?.text)
+    : [];
+  const hasDetails = hasNote || links.length > 0;
+  const detailsId = hasDetails ? `event-details-${eventDetailsCounter += 1}` : "";
 
-  article.className = `event${hasNote ? " event--expandable" : ""}`;
+  article.className = `event${hasDetails ? " event--expandable" : ""}`;
   article.setAttribute("data-event-time", event.time || "");
 
   const metadata = [
     event.duration
       ? `<span class="event__meta-item event__duration">Durata: ${escapeHtml(event.duration)}</span>`
-      : "",
-    event.linkText
-      ? event.link
-        ? `<a class="event__meta-item event__meta-link" href="${escapeAttribute(event.link)}" target="_blank" rel="noopener noreferrer">Link</a>`
-        : `<span class="event__meta-item">Link</span>`
+      : ""
+  ].filter(Boolean).join("");
+  const detailsContent = [
+    hasNote ? `<div class="event__note">${formatNote(event.note)}</div>` : "",
+    links.length
+      ? `<div class="event__links" aria-label="Link dell'evento">${links.map(link =>
+          link.url
+            ? `<a class="event__detail-link" href="${escapeAttribute(link.url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(link.text)}</a>`
+            : `<span class="event__detail-link event__detail-link--disabled">${escapeHtml(link.text)}</span>`
+        ).join("")}</div>`
       : ""
   ].filter(Boolean).join("");
   const title = event.description ? escapeHtml(event.description) : "Dettagli";
-  const summary = hasNote
+  const summary = hasDetails
     ? `<button class="event__summary" type="button" aria-expanded="false" aria-controls="${detailsId}">
         <span class="event__title">${title}</span>
         <img class="event__chevron" src="assets/arrow-down.svg" alt="" aria-hidden="true">
@@ -400,8 +405,8 @@ function createEvent(event) {
     <div class="event__body">
       ${summary}
       ${metadata ? `<div class="event__meta">${metadata}</div>` : ""}
-      ${hasNote
-        ? `<div id="${detailsId}" class="event__details" hidden>${formatNote(event.note)}</div>`
+      ${hasDetails
+        ? `<div id="${detailsId}" class="event__details" hidden>${detailsContent}</div>`
         : ""}
     </div>
   `;
@@ -627,14 +632,28 @@ function normalizeUrl(value) {
   return "";
 }
 
-function normalizeLinkField(value) {
+function normalizeLinkField(value, label = "Link") {
   const text = String(value || "").trim();
   const url = normalizeUrl(text);
 
   return {
     url,
-    text: text ? "Link" : ""
+    text: text ? label : ""
   };
+}
+
+function normalizeEventLinks(event) {
+  const rawLinks = [
+    getField(event, [
+      "Link 1", "link 1", "Link1", "link1", "URL 1", "url 1", "URL1", "url1",
+      "Link", "link", "URL", "url"
+    ]),
+    getField(event, ["Link 2", "link 2", "Link2", "link2", "URL 2", "url 2", "URL2", "url2"])
+  ];
+
+  return rawLinks
+    .map((value, index) => normalizeLinkField(value, `Link ${index + 1}`))
+    .filter(link => link.text);
 }
 
 function eventIcon(text) {
