@@ -521,17 +521,30 @@ function setupTabs() {
       if (button.dataset.action === "weather") {
         showAppView("weather");
       }
+
+      if (button.dataset.action === "drive") {
+        showAppView("drive");
+      }
     });
   });
 }
 
 function showAppView(view) {
-  const isWeather = view === "weather";
+  const isItinerary = view === "itinerary";
 
-  $("#itinerary").hidden = isWeather;
-  $("#weather").hidden = !isWeather;
-  $("#status").hidden = isWeather;
-  $("#dayNav").hidden = isWeather;
+  $("#itinerary").hidden = !isItinerary;
+  $("#weather").hidden = view !== "weather";
+  $("#drive").hidden = view !== "drive";
+  $("#status").hidden = !isItinerary;
+  $("#dayNav").hidden = !isItinerary;
+
+  if (view === "drive") {
+    const driveFrame = $(".drive__frame");
+
+    if (driveFrame && !driveFrame.hasAttribute("src")) {
+      driveFrame.src = driveFrame.dataset.src;
+    }
+  }
 }
 
 function updateTripHeader(meta, days) {

@@ -46,9 +46,9 @@
         <span class="app-tabs__icon" aria-hidden="true">☀</span>
         <span>Meteo</span>
       </button>
-      <button class="app-tabs__button" type="button">
+      <button class="app-tabs__button" type="button" data-action="drive">
         <span class="app-tabs__icon" aria-hidden="true">▱</span>
-        <span>Prenotazioni</span>
+        <span>Drive</span>
       </button>
       <button class="app-tabs__button" type="button">
         <span class="app-tabs__icon" aria-hidden="true">ⓘ</span>
@@ -67,6 +67,25 @@
         <h2 class="weather__title">Phuket</h2>
         <iframe width="650" height="187" src="https://embed.windy.com/embed.html?type=forecast&amp;location=coordinates&amp;detail=true&amp;detailLat=7.884790099999998&amp;detailLon=98.3891503&amp;metricTemp=default&amp;metricRain=default&amp;metricWind=default" title="Previsioni meteo per Phuket" frameborder="0" loading="lazy"></iframe>
       </article>
+    </section>
+    <section id="drive" class="drive" aria-label="Google Drive" hidden>
+      <div class="drive__panel">
+        <div class="drive__header">
+          <h2 class="drive__title">Google Drive</h2>
+          <a class="drive__external-link" href="https://drive.google.com/drive/folders/1AfGdsVZBeANQKay2WqrMhaTQGjzH6RqO?lfhs=2" target="_blank" rel="noopener noreferrer">
+            Apri in Google Drive
+          </a>
+        </div>
+        <div class="drive__frame-shell">
+          <iframe
+            class="drive__frame"
+            data-src="https://drive.google.com/embeddedfolderview?id=1AfGdsVZBeANQKay2WqrMhaTQGjzH6RqO#grid"
+            title="Cartella Google Drive del viaggio"
+            loading="lazy"
+            referrerpolicy="strict-origin-when-cross-origin"
+          ></iframe>
+        </div>
+      </div>
     </section>
   </main>
 
